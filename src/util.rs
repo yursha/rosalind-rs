@@ -101,6 +101,25 @@ impl fmt::Display for DnaSequence {
     }
 }
 
+impl DnaSequence {
+    /// Counts the occurrences of each distinct nucleotide in the sequence.
+    /// Operates in O(n) time and O(1) auxiliary space.
+    pub fn count_bases(&self) -> DnaBaseCounts {
+        let mut counts = DnaBaseCounts { a: 0, c: 0, g: 0, t: 0 };
+
+        for base in &self.0 {
+            match base {
+                DnaBase::A => counts.a += 1,
+                DnaBase::C => counts.c += 1,
+                DnaBase::G => counts.g += 1,
+                DnaBase::T => counts.t += 1,
+            }
+        }
+
+        counts
+    }
+}
+
 impl FromStr for RnaSequence {
     type Err = InvalidSymbolError;
 
@@ -128,6 +147,20 @@ impl fmt::Display for RnaSequence {
             write!(f, "{}", c)?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DnaBaseCounts {
+    pub a: usize,
+    pub c: usize,
+    pub g: usize,
+    pub t: usize,
+}
+
+impl fmt::Display for DnaBaseCounts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {} {} {}", self.a, self.c, self.g, self.t)
     }
 }
 
@@ -229,5 +262,35 @@ mod serialization_tests {
         let corrupt_rna = "GAUGUAACTT";
         let rna_result: Result<RnaSequence, _> = corrupt_rna.parse();
         assert_eq!(rna_result, Err(InvalidSymbolError('T')));
+    }
+}
+
+#[cfg(test)]
+mod algorithm_tests {
+    use super::*;
+
+    #[test]
+    fn test_count_empty_dna_sequence() {
+        let empty_seq = DnaSequence(vec![]);
+        let expected = DnaBaseCounts { a: 0, c: 0, g: 0, t: 0 };
+        assert_eq!(empty_seq.count_bases(), expected);
+    }
+
+    #[test]
+    fn test_count_dna_sequenc() {
+        let sample_input = "AGCTTTTCATTCTGACTGCAACGGGCAATATGTCTCTGTGTGGATTAAAAAAAGAGTGTCTGATAGCAGC";
+        let expected_output = "20 12 17 21";
+
+        let sequence: DnaSequence = sample_input.parse()
+            .expect("Sample dataset must contain only valid DNA symbols");
+
+        let counts = sequence.count_bases();
+
+        assert_eq!(counts.a, 20);
+        assert_eq!(counts.c, 12);
+        assert_eq!(counts.g, 17);
+        assert_eq!(counts.t, 21);
+
+        assert_eq!(counts.to_string(), expected_output);
     }
 }
