@@ -118,6 +118,22 @@ impl DnaSequence {
 
         counts
     }
+
+    /// Transcribes the DNA sequence into an RNA sequence by swapping Thymine (T) for Uracil (U).
+    /// Operates in O(n) time and returns a typed RnaSequence wrapper.
+    pub fn transcribe(&self) -> RnaSequence {
+        let rna_bases = self.0
+            .iter()
+            .map(|base| match base {
+                DnaBase::A => RnaBase::A,
+                DnaBase::C => RnaBase::C,
+                DnaBase::G => RnaBase::G,
+                DnaBase::T => RnaBase::U,
+            })
+            .collect();
+
+        RnaSequence(rna_bases)
+    }
 }
 
 impl FromStr for RnaSequence {
@@ -164,18 +180,6 @@ impl fmt::Display for DnaBaseCounts {
     }
 }
 
-fn transcribe_dna_to_rna(dna_sequence: &[DnaBase]) -> Vec<RnaBase> {
-    dna_sequence
-        .iter()
-        .map(|base| match base {
-            DnaBase::A => RnaBase::A,
-            DnaBase::C => RnaBase::C,
-            DnaBase::G => RnaBase::G,
-            DnaBase::T => RnaBase::U,
-        })
-    .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,10 +211,10 @@ mod tests {
 
     #[test]
     fn test_dna_to_rna_transcription() {
-        let dna = vec![DnaBase::G, DnaBase::A, DnaBase::T, DnaBase::C];
-        let expected_rna = vec![RnaBase::G, RnaBase::A, RnaBase::U, RnaBase::C];
+        let dna = DnaSequence(vec![DnaBase::G, DnaBase::A, DnaBase::T, DnaBase::C]);
+        let expected_rna = RnaSequence(vec![RnaBase::G, RnaBase::A, RnaBase::U, RnaBase::C]);
 
-        assert_eq!(transcribe_dna_to_rna(&dna), expected_rna);
+        assert_eq!(dna.transcribe(), expected_rna);
     }
 }
 
