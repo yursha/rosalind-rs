@@ -1,13 +1,10 @@
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RnaBase {
-    A,
-    C,
-    G,
-    U,
-}
+use crate::rna::{RnaBase, RnaSequence};
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct InvalidDnaSymbolError(pub char);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DnaBase {
@@ -16,39 +13,6 @@ pub enum DnaBase {
     G,
     T,
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AminoAcid {
-    A,
-    R,
-    N,
-    D,
-    C,
-    Q,
-    E,
-    G,
-    H,
-    I,
-    L,
-    K,
-    M,
-    F,
-    P,
-    S,
-    T,
-    W,
-    Y,
-    V,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct InvalidSymbolError(pub char);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DnaSequence(pub Vec<DnaBase>);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RnaSequence(pub Vec<RnaBase>);
 
 impl fmt::Display for DnaBase {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -62,20 +26,8 @@ impl fmt::Display for DnaBase {
     }
 }
 
-impl fmt::Display for RnaBase {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let c = match self {
-            RnaBase::A => 'A',
-            RnaBase::C => 'C',
-            RnaBase::G => 'G',
-            RnaBase::U => 'U',
-        };
-        write!(f, "{}", c)
-    }
-}
-
 impl TryFrom<char> for DnaBase {
-    type Error = InvalidSymbolError;
+    type Error = InvalidDnaSymbolError;
 
     fn try_from(c: char) -> Result<Self, Self::Error> {
         match c.to_ascii_uppercase() {
@@ -83,27 +35,16 @@ impl TryFrom<char> for DnaBase {
             'C' => Ok(DnaBase::C),
             'G' => Ok(DnaBase::G),
             'T' => Ok(DnaBase::T),
-            _ => Err(InvalidSymbolError(c)),
+            _ => Err(InvalidDnaSymbolError(c)),
         }
     }
 }
 
-impl TryFrom<char> for RnaBase {
-    type Error = InvalidSymbolError;
-
-    fn try_from(c: char) -> Result<Self, Self::Error> {
-        match c.to_ascii_uppercase() {
-            'A' => Ok(RnaBase::A),
-            'C' => Ok(RnaBase::C),
-            'G' => Ok(RnaBase::G),
-            'U' => Ok(RnaBase::U),
-            _ => Err(InvalidSymbolError(c)),
-        }
-    }
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DnaSequence(pub Vec<DnaBase>);
 
 impl FromStr for DnaSequence {
-    type Err = InvalidSymbolError;
+    type Err = InvalidDnaSymbolError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bases = s
@@ -113,7 +54,7 @@ impl FromStr for DnaSequence {
                 'C' => Ok(DnaBase::C),
                 'G' => Ok(DnaBase::G),
                 'T' => Ok(DnaBase::T),
-                _ => Err(InvalidSymbolError(c)),
+                _ => Err(InvalidDnaSymbolError(c)),
             })
             .collect::<Result<Vec<DnaBase>, _>>()?;
         Ok(DnaSequence(bases))
@@ -195,39 +136,6 @@ impl DnaSequence {
     }
 }
 
-impl FromStr for RnaSequence {
-    type Err = InvalidSymbolError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bases = s
-            .chars()
-            .map(|c| match c.to_ascii_uppercase() {
-                'A' => Ok(RnaBase::A),
-                'C' => Ok(RnaBase::C),
-                'G' => Ok(RnaBase::G),
-                'U' => Ok(RnaBase::U),
-                _ => Err(InvalidSymbolError(c)),
-            })
-            .collect::<Result<Vec<RnaBase>, _>>()?;
-        Ok(RnaSequence(bases))
-    }
-}
-
-impl fmt::Display for RnaSequence {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for base in &self.0 {
-            let c = match base {
-                RnaBase::A => 'A',
-                RnaBase::C => 'C',
-                RnaBase::G => 'G',
-                RnaBase::U => 'U',
-            };
-            write!(f, "{}", c)?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DnaBaseCounts {
     pub a: usize,
@@ -274,7 +182,7 @@ mod tests {
         let input = "GATXG";
         let result: Result<Vec<DnaBase>, _> = input.chars().map(DnaBase::try_from).collect();
 
-        assert_eq!(result, Err(InvalidSymbolError('X')));
+        assert_eq!(result, Err(InvalidDnaSymbolError('X')));
     }
 
     #[test]
@@ -311,31 +219,11 @@ mod serialization_tests {
     }
 
     #[test]
-    fn test_rna_sequence_serialization_round_trip() {
-        let original_raw = "GAUGGAACUUGACUACGUAAAUU";
-
-        // 1. Deserialize
-        let sequence: RnaSequence = original_raw
-            .parse()
-            .expect("Valid RNA string should deserialize seamlessly");
-
-        // 2. Serialize
-        let serialized_output = sequence.to_string();
-
-        assert_eq!(serialized_output, original_raw);
-    }
-
-    #[test]
     fn test_deserialization_failure_on_invalid_text() {
         // 'X' is invalid in DNA
         let corrupt_dna = "GATGXAACTT";
         let result: Result<DnaSequence, _> = corrupt_dna.parse();
-        assert_eq!(result, Err(InvalidSymbolError('X')));
-
-        // 'T' is invalid in RNA
-        let corrupt_rna = "GAUGUAACTT";
-        let rna_result: Result<RnaSequence, _> = corrupt_rna.parse();
-        assert_eq!(rna_result, Err(InvalidSymbolError('T')));
+        assert_eq!(result, Err(InvalidDnaSymbolError('X')));
     }
 }
 

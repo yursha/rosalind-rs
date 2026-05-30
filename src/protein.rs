@@ -1,0 +1,23 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AminoAcid {
+    A,
+    R,
+    N,
+    D,
+    C,
+    Q,
+    E,
+    G,
+    H,
+    I,
+    L,
+    K,
+    M,
+    F,
+    P,
+    S,
+    T,
+    W,
+    Y,
+    V,
+}

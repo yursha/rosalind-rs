@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use rosalind::util::DnaSequence;
+use rosalind::dna::DnaSequence;
 use std::fs;
 use std::path::PathBuf;
 
