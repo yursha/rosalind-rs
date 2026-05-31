@@ -134,6 +134,24 @@ impl DnaSequence {
 
         DnaSequence(rev_comp_bases)
     }
+
+    /// Calculates the GC-content of the DNA sequence as a percentage.
+    ///
+    /// Returns `0.0` if the sequence is empty to prevent a division-by-zero panic.
+    pub fn gc_content(&self) -> f64 {
+        if self.0.is_empty() {
+            return 0.0;
+        }
+
+        // Count occurrences of C and G variants within the strongly typed vector
+        let gc_count = self
+            .0
+            .iter()
+            .filter(|&&base| matches!(base, DnaBase::C | DnaBase::G))
+            .count();
+
+        (gc_count as f64 / self.0.len() as f64) * 100.0
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -291,5 +309,27 @@ mod algorithm_tests {
 
         let result = sequence.reverse_complement();
         assert_eq!(result.to_string(), expected_output);
+    }
+
+    #[test]
+    fn test_gc_content_empty() {
+        let empty_seq = DnaSequence(vec![]);
+        assert_eq!(empty_seq.gc_content(), 0.0);
+    }
+
+    #[test]
+    fn test_gc_content_standard_vector() {
+        // User example: "AGCTATAG" has 3 GC pairs out of 8 total bases (37.5%)
+        let sequence: DnaSequence = "AGCTATAG".parse().expect("Valid test string");
+
+        let expected = 37.5;
+        assert!((sequence.gc_content() - expected).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_gc_content_pure_gc() {
+        let sequence: DnaSequence = "GGCCGGCCGG".parse().expect("Valid test string");
+
+        assert_eq!(sequence.gc_content(), 100.0);
     }
 }
