@@ -1,8 +1,14 @@
+use crate::sequence::protein::AminoAcid;
 use std::fmt;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct InvalidRnaSymbolError(pub char);
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TranslationError {
+    IncompleteCodon,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RnaBase {
@@ -74,6 +80,97 @@ impl fmt::Display for RnaSequence {
     }
 }
 
+impl RnaSequence {
+    pub fn translate(&self) -> Result<Vec<AminoAcid>, TranslationError> {
+        if self.0.len() % 3 != 0 {
+            return Err(TranslationError::IncompleteCodon);
+        }
+
+        self.0
+            .chunks_exact(3)
+            .map(|codon| codon_to_amino_acid([codon[0], codon[1], codon[2]]))
+            .collect()
+    }
+}
+
+fn codon_to_amino_acid(codon: [RnaBase; 3]) -> Result<AminoAcid, TranslationError> {
+    match codon {
+        [RnaBase::U, RnaBase::U, RnaBase::U] | [RnaBase::U, RnaBase::U, RnaBase::C] => {
+            Ok(AminoAcid::F)
+        }
+        [RnaBase::U, RnaBase::U, RnaBase::A]
+        | [RnaBase::U, RnaBase::U, RnaBase::G]
+        | [RnaBase::C, RnaBase::U, RnaBase::U]
+        | [RnaBase::C, RnaBase::U, RnaBase::C]
+        | [RnaBase::C, RnaBase::U, RnaBase::A]
+        | [RnaBase::C, RnaBase::U, RnaBase::G] => Ok(AminoAcid::L),
+        [RnaBase::A, RnaBase::U, RnaBase::U]
+        | [RnaBase::A, RnaBase::U, RnaBase::C]
+        | [RnaBase::A, RnaBase::U, RnaBase::A] => Ok(AminoAcid::I),
+        [RnaBase::A, RnaBase::U, RnaBase::G] => Ok(AminoAcid::M),
+        [RnaBase::G, RnaBase::U, RnaBase::U]
+        | [RnaBase::G, RnaBase::U, RnaBase::C]
+        | [RnaBase::G, RnaBase::U, RnaBase::A]
+        | [RnaBase::G, RnaBase::U, RnaBase::G] => Ok(AminoAcid::V),
+        [RnaBase::U, RnaBase::C, RnaBase::U]
+        | [RnaBase::U, RnaBase::C, RnaBase::C]
+        | [RnaBase::U, RnaBase::C, RnaBase::A]
+        | [RnaBase::U, RnaBase::C, RnaBase::G]
+        | [RnaBase::A, RnaBase::G, RnaBase::U]
+        | [RnaBase::A, RnaBase::G, RnaBase::C] => Ok(AminoAcid::S),
+        [RnaBase::C, RnaBase::C, RnaBase::U]
+        | [RnaBase::C, RnaBase::C, RnaBase::C]
+        | [RnaBase::C, RnaBase::C, RnaBase::A]
+        | [RnaBase::C, RnaBase::C, RnaBase::G] => Ok(AminoAcid::P),
+        [RnaBase::A, RnaBase::C, RnaBase::U]
+        | [RnaBase::A, RnaBase::C, RnaBase::C]
+        | [RnaBase::A, RnaBase::C, RnaBase::A]
+        | [RnaBase::A, RnaBase::C, RnaBase::G] => Ok(AminoAcid::T),
+        [RnaBase::G, RnaBase::C, RnaBase::U]
+        | [RnaBase::G, RnaBase::C, RnaBase::C]
+        | [RnaBase::G, RnaBase::C, RnaBase::A]
+        | [RnaBase::G, RnaBase::C, RnaBase::G] => Ok(AminoAcid::A),
+        [RnaBase::U, RnaBase::A, RnaBase::U] | [RnaBase::U, RnaBase::A, RnaBase::C] => {
+            Ok(AminoAcid::Y)
+        }
+        [RnaBase::U, RnaBase::A, RnaBase::A]
+        | [RnaBase::U, RnaBase::A, RnaBase::G]
+        | [RnaBase::U, RnaBase::G, RnaBase::A] => Ok(AminoAcid::Stop),
+        [RnaBase::C, RnaBase::A, RnaBase::U] | [RnaBase::C, RnaBase::A, RnaBase::C] => {
+            Ok(AminoAcid::H)
+        }
+        [RnaBase::C, RnaBase::A, RnaBase::A] | [RnaBase::C, RnaBase::A, RnaBase::G] => {
+            Ok(AminoAcid::Q)
+        }
+        [RnaBase::A, RnaBase::A, RnaBase::U] | [RnaBase::A, RnaBase::A, RnaBase::C] => {
+            Ok(AminoAcid::N)
+        }
+        [RnaBase::A, RnaBase::A, RnaBase::A] | [RnaBase::A, RnaBase::A, RnaBase::G] => {
+            Ok(AminoAcid::K)
+        }
+        [RnaBase::G, RnaBase::A, RnaBase::U] | [RnaBase::G, RnaBase::A, RnaBase::C] => {
+            Ok(AminoAcid::D)
+        }
+        [RnaBase::G, RnaBase::A, RnaBase::A] | [RnaBase::G, RnaBase::A, RnaBase::G] => {
+            Ok(AminoAcid::E)
+        }
+        [RnaBase::U, RnaBase::G, RnaBase::U] | [RnaBase::U, RnaBase::G, RnaBase::C] => {
+            Ok(AminoAcid::C)
+        }
+        [RnaBase::U, RnaBase::G, RnaBase::G] => Ok(AminoAcid::W),
+        [RnaBase::C, RnaBase::G, RnaBase::U]
+        | [RnaBase::C, RnaBase::G, RnaBase::C]
+        | [RnaBase::C, RnaBase::G, RnaBase::A]
+        | [RnaBase::C, RnaBase::G, RnaBase::G]
+        | [RnaBase::A, RnaBase::G, RnaBase::A]
+        | [RnaBase::A, RnaBase::G, RnaBase::G] => Ok(AminoAcid::R),
+        [RnaBase::G, RnaBase::G, RnaBase::U]
+        | [RnaBase::G, RnaBase::G, RnaBase::C]
+        | [RnaBase::G, RnaBase::G, RnaBase::A]
+        | [RnaBase::G, RnaBase::G, RnaBase::G] => Ok(AminoAcid::G),
+    }
+}
+
 #[cfg(test)]
 mod serialization_tests {
     use super::*;
@@ -100,4 +197,15 @@ mod serialization_tests {
         let rna_result: Result<RnaSequence, _> = corrupt_rna.parse();
         assert_eq!(rna_result, Err(InvalidRnaSymbolError('T')));
     }
+}
+
+#[test]
+fn test_rna_translation() {
+    let rna: RnaSequence = "AUGGCCAUGGCGCCCAGAACUGAGAUCAAUAGUACCCGUAUUAACGGGUGA"
+        .parse()
+        .unwrap();
+    let protein = rna.translate().unwrap();
+    // Verify first few amino acids
+    assert_eq!(protein[0], AminoAcid::M); // AUG -> Methionine
+    assert_eq!(protein[1], AminoAcid::A); // GCC -> Alanine
 }

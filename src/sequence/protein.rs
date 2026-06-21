@@ -20,4 +20,5 @@ pub enum AminoAcid {
     W,
     Y,
     V,
+    Stop,
 }

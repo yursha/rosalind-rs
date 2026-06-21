@@ -118,7 +118,10 @@ fn main() {
                         }
                     },
                     [lone_rec] => {
-                        eprintln!("Warning: Sequence '{}' is unpaired and was skipped for Hamming distance calculation.", lone_rec.id);
+                        eprintln!(
+                            "Warning: Sequence '{}' is unpaired and was skipped for Hamming distance calculation.",
+                            lone_rec.id
+                        );
                     }
                     _ => unreachable!(),
                 }
