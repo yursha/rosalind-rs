@@ -12,6 +12,12 @@ pub struct LengthMismatchError {
     pub other_len: usize,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ConsensusResult {
+    pub consensus: DnaSequence,
+    pub profile: Vec<DnaBaseCounts>,
+}
+
 impl std::fmt::Display for LengthMismatchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -214,6 +220,66 @@ impl DnaSequence {
         }
 
         positions
+    }
+
+    /// Calculates the consensus string and the profile matrix for a collection of equal-length DNA sequences.
+    ///
+    /// NOTE: This implementation is an oversimplification. It uses deterministic tie-breaking
+    /// (A > C > G > T) and does not account for biological ambiguity (IUPAC codes) or
+    /// base quality scores common in production-grade bioinformatics.
+    pub fn consensus(sequences: &[DnaSequence]) -> Result<ConsensusResult, String> {
+        if sequences.is_empty() {
+            return Err("Cannot compute consensus of empty sequence set".to_string());
+        }
+
+        let len = sequences[0].0.len();
+        if sequences.iter().any(|s| s.0.len() != len) {
+            return Err("All sequences must have the same length".to_string());
+        }
+
+        // Initialize profile matrix
+        let mut profile = vec![
+            DnaBaseCounts {
+                a: 0,
+                c: 0,
+                g: 0,
+                t: 0
+            };
+            len
+        ];
+
+        // Fill profile matrix
+        for seq in sequences {
+            for (i, base) in seq.0.iter().enumerate() {
+                match base {
+                    DnaBase::A => profile[i].a += 1,
+                    DnaBase::C => profile[i].c += 1,
+                    DnaBase::G => profile[i].g += 1,
+                    DnaBase::T => profile[i].t += 1,
+                }
+            }
+        }
+
+        // Derive consensus string
+        let consensus_bases = profile
+            .iter()
+            .map(|p| {
+                if p.a >= p.c && p.a >= p.g && p.a >= p.t {
+                    DnaBase::A
+                } else if p.c >= p.g && p.c >= p.t {
+                    DnaBase::C
+                } else if p.g >= p.t {
+                    DnaBase::G
+                } else {
+                    DnaBase::T
+                }
+            })
+            .collect();
+
+        Ok(ConsensusResult {
+            consensus: DnaSequence(consensus_bases),
+            profile,
+        })
     }
 }
 
@@ -441,5 +507,21 @@ mod algorithm_tests {
 
         let expected = vec![2, 4, 10];
         assert_eq!(s.find_motif(&t), expected);
+    }
+
+    #[test]
+    fn test_consensus() {
+        let input = vec![
+            "ATCCAGCT".parse::<DnaSequence>().unwrap(),
+            "GGGCAACT".parse::<DnaSequence>().unwrap(),
+            "ATGGATCT".parse::<DnaSequence>().unwrap(),
+            "AAGCAACC".parse::<DnaSequence>().unwrap(),
+            "TTGGAACT".parse::<DnaSequence>().unwrap(),
+            "ATGCCATT".parse::<DnaSequence>().unwrap(),
+            "ATGGCACT".parse::<DnaSequence>().unwrap(),
+        ];
+
+        let result = DnaSequence::consensus(&input).unwrap();
+        assert_eq!(result.consensus.to_string(), "ATGCAACT");
     }
 }

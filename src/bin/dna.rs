@@ -40,6 +40,8 @@ enum Commands {
     Hamming,
     /// Find all 1-based locations of a motif in the DNA sequence
     Motif,
+    /// Calculate the consensus string for a set of equal-length DNA sequences
+    Consensus,
 }
 
 /// A unified internal representation of a sequence entry
@@ -108,6 +110,33 @@ fn main() {
     }
 
     match cli.command {
+        Commands::Consensus => {
+            let sequences: Vec<DnaSequence> = records.iter().map(|r| r.sequence.clone()).collect();
+            match DnaSequence::consensus(&sequences) {
+                Ok(result) => {
+                    println!("{}", result.consensus);
+
+                    // Flatten the profile into four vectors
+                    let mut a_counts = Vec::new();
+                    let mut c_counts = Vec::new();
+                    let mut g_counts = Vec::new();
+                    let mut t_counts = Vec::new();
+
+                    for p in &result.profile {
+                        a_counts.push(p.a.to_string());
+                        c_counts.push(p.c.to_string());
+                        g_counts.push(p.g.to_string());
+                        t_counts.push(p.t.to_string());
+                    }
+
+                    println!("A: {}", a_counts.join(" "));
+                    println!("C: {}", c_counts.join(" "));
+                    println!("G: {}", g_counts.join(" "));
+                    println!("T: {}", t_counts.join(" "));
+                }
+                Err(e) => eprintln!("Error calculating consensus: {}", e),
+            }
+        }
         Commands::Motif => {
             if records.len() < 2 {
                 eprintln!(
@@ -168,5 +197,6 @@ fn process_sequence(sequence: &DnaSequence, command: &Commands, id: &str) {
         }
         Commands::Hamming => unreachable!(),
         Commands::Motif => unreachable!(),
+        Commands::Consensus => unreachable!(),
     }
 }
