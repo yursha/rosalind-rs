@@ -193,6 +193,28 @@ impl DnaSequence {
 
         Ok(distance)
     }
+
+    /// Returns the 1-based start positions of all occurrences of a motif within the sequence.
+    pub fn find_motif(&self, motif: &DnaSequence) -> Vec<usize> {
+        let n = self.0.len();
+        let m = motif.0.len();
+        let mut positions = Vec::new();
+
+        if m == 0 || m > n {
+            return positions;
+        }
+
+        // Slide the window across the sequence
+        for i in 0..=(n - m) {
+            // Compare the slice of our sequence with the motif
+            if &self.0[i..i + m] == &motif.0[..] {
+                // Convert 0-based index to 1-based position
+                positions.push(i + 1);
+            }
+        }
+
+        positions
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -410,5 +432,14 @@ mod algorithm_tests {
         });
 
         assert_eq!(seq1.hamming_distance(&seq2), expected_err);
+    }
+
+    #[test]
+    fn test_find_motif() {
+        let s: DnaSequence = "GATATATGCATATACTT".parse().unwrap();
+        let t: DnaSequence = "ATAT".parse().unwrap();
+
+        let expected = vec![2, 4, 10];
+        assert_eq!(s.find_motif(&t), expected);
     }
 }

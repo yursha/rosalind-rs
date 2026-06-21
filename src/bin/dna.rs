@@ -38,6 +38,8 @@ enum Commands {
     GcContent,
     /// Compute the Hamming distance pairwise across sequences
     Hamming,
+    /// Find all 1-based locations of a motif in the DNA sequence
+    Motif,
 }
 
 /// A unified internal representation of a sequence entry
@@ -106,6 +108,20 @@ fn main() {
     }
 
     match cli.command {
+        Commands::Motif => {
+            if records.len() < 2 {
+                eprintln!(
+                    "Error: Motif command requires at least two sequences in the input file."
+                );
+                std::process::exit(1);
+            }
+            let haystack = &records[0];
+            let motif = &records[1];
+
+            let locations = haystack.sequence.find_motif(&motif.sequence);
+            let loc_str: Vec<String> = locations.iter().map(|p| p.to_string()).collect();
+            println!("{}", loc_str.join(" "));
+        }
         Commands::Hamming => {
             // Process sequences pairwise in sequential blocks of two
             for chunk in records.chunks(2) {
@@ -151,5 +167,6 @@ fn process_sequence(sequence: &DnaSequence, command: &Commands, id: &str) {
             println!("[{}] {:.5}%", id, sequence.gc_content());
         }
         Commands::Hamming => unreachable!(),
+        Commands::Motif => unreachable!(),
     }
 }
