@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
@@ -30,7 +31,7 @@ impl std::fmt::Display for LengthMismatchError {
 
 impl std::error::Error for LengthMismatchError {}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DnaBase {
     A,
     C,
@@ -281,6 +282,51 @@ impl DnaSequence {
             profile,
         })
     }
+
+    /// Computes the directed overlap graph O_k in O(N*k + E) time.
+    pub fn overlap_graph(sequences: &[DnaSequence], k: usize) -> Vec<(usize, usize)> {
+        let mut edges = Vec::new();
+        let n = sequences.len();
+
+        if k == 0 || n < 2 {
+            return edges;
+        }
+
+        // PASS 1: Build the Prefix Index
+        // Key: A zero-copy slice of the sequence (&[DnaBase])
+        // Value: A list of sequence indices that start with this exact k-mer
+        let mut prefix_map: HashMap<&[DnaBase], Vec<usize>> = HashMap::with_capacity(n);
+
+        for (i, seq) in sequences.iter().enumerate() {
+            let bases = &seq.0;
+            if bases.len() >= k {
+                let prefix = &bases[..k];
+                prefix_map.entry(prefix).or_default().push(i);
+            }
+        }
+
+        // PASS 2: Probe the table using Suffixes
+        for (i, seq) in sequences.iter().enumerate() {
+            let bases = &seq.0;
+            if bases.len() < k {
+                continue;
+            }
+
+            let suffix = &bases[bases.len() - k..];
+
+            // O(1) average lookup time
+            if let Some(target_indices) = prefix_map.get(suffix) {
+                for &j in target_indices {
+                    if i != j {
+                        // Forbid self-loops
+                        edges.push((i, j));
+                    }
+                }
+            }
+        }
+
+        edges
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -523,5 +569,26 @@ mod algorithm_tests {
 
         let result = DnaSequence::consensus(&input).unwrap();
         assert_eq!(result.consensus.to_string(), "ATGCAACT");
+    }
+
+    #[test]
+    fn test_overlap_graph() {
+        let sequences = vec![
+            "AAATAAA".parse::<DnaSequence>().unwrap(), // Index 0
+            "AAATTTT".parse::<DnaSequence>().unwrap(), // Index 1
+            "TTTTCCC".parse::<DnaSequence>().unwrap(), // Index 2
+            "AAATCCC".parse::<DnaSequence>().unwrap(), // Index 3
+            "GGGTGGG".parse::<DnaSequence>().unwrap(), // Index 4
+        ];
+
+        let edges = DnaSequence::overlap_graph(&sequences, 3);
+
+        // For k=3, the expected directed overlaps are:
+        // AAATAAA (0) --[AAA]--> AAATTTT (1)
+        // AAATAAA (0) --[AAA]--> AAATCCC (3)
+        // AAATTTT (1) --[TTT]--> TTTTCCC (2)
+        let expected = vec![(0, 1), (0, 3), (1, 2)];
+
+        assert_eq!(edges, expected);
     }
 }

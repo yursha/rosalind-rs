@@ -42,6 +42,12 @@ enum Commands {
     Motif,
     /// Calculate the consensus string for a set of equal-length DNA sequences
     Consensus,
+    /// Compute the overlap graph adjacency list for the sequence collection
+    Overlap {
+        /// Suffix/Prefix overlap match threshold
+        #[arg(short, long, default_value_t = 3)]
+        k: usize,
+    },
 }
 
 /// A unified internal representation of a sequence entry
@@ -172,6 +178,14 @@ fn main() {
                 }
             }
         }
+        Commands::Overlap { k } => {
+            let sequences: Vec<DnaSequence> = records.iter().map(|r| r.sequence.clone()).collect();
+            let adjacency_list = DnaSequence::overlap_graph(&sequences, k);
+
+            for (tail, head) in adjacency_list {
+                println!("{} {}", records[tail].id, records[head].id);
+            }
+        }
         _ => {
             for rec in &records {
                 process_sequence(&rec.sequence, &cli.command, &rec.id);
@@ -198,5 +212,6 @@ fn process_sequence(sequence: &DnaSequence, command: &Commands, id: &str) {
         Commands::Hamming => unreachable!(),
         Commands::Motif => unreachable!(),
         Commands::Consensus => unreachable!(),
+        Commands::Overlap { .. } => unreachable!(),
     }
 }
