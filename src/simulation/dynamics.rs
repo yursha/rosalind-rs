@@ -1,20 +1,3 @@
-/// Represents the demographic breakdown of a population at a specific point in time.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PopulationState {
-    pub juveniles: u64,
-    pub adults: u64,
-}
-
-impl PopulationState {
-    pub fn new(juveniles: u64, adults: u64) -> Self {
-        Self { juveniles, adults }
-    }
-
-    pub fn total(&self) -> u64 {
-        self.juveniles + self.adults
-    }
-}
-
 /// Represents a generalized discrete-time population projection model.
 /// Used to simulate population dynamics, epidemiological growth, and demographic shifts.
 #[derive(Debug, Clone)]
@@ -24,6 +7,8 @@ pub struct AgeStructuredModel {
     /// The probability of an individual surviving to the next time step (0.0 to 1.0).
     /// Set to 1.0 for immortal models; lower values simulate mortality.
     pub survival_rate: f64,
+    /// If Some(m), cohorts at age m+1 are removed (senescence).
+    pub max_lifespan: Option<usize>,
 }
 
 impl AgeStructuredModel {
@@ -31,35 +16,58 @@ impl AgeStructuredModel {
         Self {
             fecundity,
             survival_rate: survival_rate.clamp(0.0, 1.0),
+            max_lifespan: None,
         }
+    }
+
+    pub fn with_lifespan(mut self, lifespan: usize) -> Self {
+        self.max_lifespan = Some(lifespan);
+        self
     }
 
     /// Projects the population state forward by a given number of elapsed time intervals,
     /// starting from an initial population distribution.
-    pub fn project(
-        &self,
-        initial_state: PopulationState,
-        elapsed_intervals: u32,
-    ) -> PopulationState {
-        let mut juveniles = initial_state.juveniles as f64;
-        let mut adults = initial_state.adults as f64;
+    pub fn project(&self, starting_cohort_size: u128, elapsed_intervals: u32) -> u128 {
+        // If mortal, we need `m` slots. If immortal, we only need 2 slots: [Newborns, Adults 2+]
+        let cohort_count = self.max_lifespan.unwrap_or(2);
 
-        // Shadow with the right format
-        let fecundity = self.fecundity as f64;
+        let mut cohorts = vec![0u128; cohort_count];
+        cohorts[0] = starting_cohort_size;
 
-        // If elapsed_intervals is 0, this loop does not execute,
-        // and initial_state is returned perfectly intact.
-        for _ in 1..=elapsed_intervals {
-            let new_offspring = adults * fecundity;
-            let surviving_juveniles = juveniles * self.survival_rate;
-            let surviving_adults = adults * self.survival_rate;
+        // One interval is used up for the initial cohort to mature
+        for _ in 1..elapsed_intervals {
+            // 1. Offspring born from all mature cohorts (Index 1 to the end)
+            let adults: u128 = cohorts[1..].iter().sum();
+            let newborns = adults * (self.fecundity as u128);
 
-            // Shift cohorts forward
-            adults = surviving_adults + surviving_juveniles;
-            juveniles = new_offspring;
+            let mut next_cohorts = vec![0u128; cohort_count];
+
+            // 2. Shift everyone forward one period
+            for i in 0..(cohort_count - 1) {
+                next_cohorts[i + 1] = self.survive(cohorts[i]);
+            }
+
+            // 3. THE MAGIC BIFURCATION: The Drain vs. The Cliff
+            if self.max_lifespan.is_none() {
+                // Immortal Mode: The elders in the last bucket survive AND stay in the last bucket
+                next_cohorts[cohort_count - 1] += self.survive(cohorts[cohort_count - 1]);
+            }
+            // (If Some(m), we do nothing here. The oldest cohort simply gets overwritten/dropped!)
+
+            next_cohorts[0] = newborns;
+            cohorts = next_cohorts;
         }
 
-        PopulationState::new(juveniles.round() as u64, adults.round() as u64)
+        cohorts.iter().sum()
+    }
+
+    /// Helper to safely apply survival rates without ruining exact integer sequences
+    fn survive(&self, count: u128) -> u128 {
+        if (self.survival_rate - 1.0).abs() < f64::EPSILON {
+            count // Bypass f64 entirely to protect exact Rosalind u128 precision
+        } else {
+            (count as f64 * self.survival_rate).round() as u128
+        }
     }
 }
 
@@ -71,26 +79,20 @@ mod tests {
     fn test_binary_fission_with_immortality() {
         // Standard binary fission / ideal growth (fecundity=1, survival=1.0)
         let model = AgeStructuredModel::new(1, 1.0);
-        let initial = PopulationState::new(10, 0);
-        let step_3 = model.project(initial, 3);
-        assert_eq!(step_3.adults, 20);
-        assert_eq!(step_3.juveniles, 10);
+        assert_eq!(model.project(10, 3), 20);
     }
 
     #[test]
     fn test_population_decay_with_mortality() {
         // No reproduction, 50% survival rate
         let model = AgeStructuredModel::new(0, 0.5);
-        // Start with a substantial real-world population
-        let initial = PopulationState::new(1000, 0);
+        assert_eq!(model.project(1000, 1), 1000);
+        assert_eq!(model.project(1000, 2), 500);
+    }
 
-        // Step 1: 1000 juveniles -> 50% survive to become 500 adults (0 juveniles born)
-        let step_1 = model.project(initial, 1);
-        assert_eq!(step_1.juveniles, 0);
-        assert_eq!(step_1.adults, 500);
-
-        // Step 2: 500 adults -> 50% survive to become 250 adults
-        let step_2 = model.project(initial, 2);
-        assert_eq!(step_2.total(), 250);
+    #[test]
+    fn test_population_age_based_mortality() {
+        let model = AgeStructuredModel::new(1, 1.0).with_lifespan(3);
+        assert_eq!(model.project(1, 6), 4);
     }
 }

@@ -1,7 +1,8 @@
-use rosalind_rs::simulation::dynamics::{AgeStructuredModel, PopulationState};
+use rosalind_rs::simulation::dynamics::AgeStructuredModel;
 use std::env;
 use std::fs;
 use std::process;
+use std::str::FromStr;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -23,26 +24,25 @@ fn main() {
     if tokens.len() < 4 {
         eprintln!(
             "Error: Input file must contain exactly four integers:\n\
-             <elapsed_intervals> <fecundity> <initial_juveniles> <initial_adults>"
+             <elapsed_intervals> <fecundity> <initial_cohort> <lifespan>"
         );
         process::exit(1);
     }
 
-    let elapsed_intervals = parse_u64(tokens[0], "elapsed time intervals") as u32;
-    let fecundity = parse_u64(tokens[1], "fecundity");
-    let initial_juveniles = parse_u64(tokens[2], "initial juveniles");
-    let initial_adults = parse_u64(tokens[3], "initial adults");
+    let elapsed_intervals: u32 = parse_num(tokens[0], "elapsed time intervals");
+    let fecundity: u64 = parse_num(tokens[1], "fecundity");
+    let initial_cohort: u128 = parse_num(tokens[2], "initial cohort");
+    let lifespan: usize = parse_num(tokens[3], "lifespan");
 
-    let model = AgeStructuredModel::new(fecundity, 1.0);
-    let initial_state = PopulationState::new(initial_juveniles, initial_adults);
+    let model = AgeStructuredModel::new(fecundity, 1.0).with_lifespan(lifespan);
 
-    let final_state = model.project(initial_state, elapsed_intervals);
+    let count = model.project(initial_cohort, elapsed_intervals);
 
-    println!("{}", final_state.total());
+    println!("{}", count);
 }
 
-fn parse_u64(token: &str, label: &str) -> u64 {
-    match token.parse::<u64>() {
+fn parse_num<T: FromStr>(token: &str, label: &str) -> T {
+    match token.parse::<T>() {
         Ok(count) => count,
         Err(_) => {
             eprintln!("Error: Failed to parse {} from token '{}'", label, token);
