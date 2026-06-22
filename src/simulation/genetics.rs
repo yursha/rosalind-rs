@@ -147,7 +147,6 @@ mod tests {
 
     #[test]
     fn test_couple_dominant_offspring_sample() {
-        // Sample input: 1 0 0 1 0 1
         let couples = CouplePopulation::new(1, 0, 0, 1, 0, 1);
         assert_near(couples.expected_dominant_offspring(), 3.5);
     }
